@@ -27,6 +27,8 @@ interface MyPluginSettings {
 	suffix: string;
 }
 
+const devider = "---";
+
 function isFolder(arg: any): arg is TFolder {
 	return typeof arg["children"] !== "undefined";
 }
@@ -79,20 +81,34 @@ export default class MyTestingPlugin extends Plugin {
 							input.path,
 							input.name
 						);
-						const content = this.makeIndexFileContent(
-							input.name,
-							paths
-						);
+						let indexHeader = "";
+						if (paths.length) {
+							indexHeader = this.makeIndexFileHeader(
+								input.name,
+								paths
+							);
+						}
 						try {
 							const indexFile =
 								this.app.vault.getFileByPath(indexPath);
 							if (indexFile && this.settings.rewriteIndexFile) {
-								this.app.vault.process(
-									indexFile,
-									() => content
-								);
+								this.app.vault.process(indexFile, (data) => {
+									const endIndex = data.indexOf(devider);
+									const prevHeader = data.substring(
+										0,
+										endIndex + devider.length
+									);
+									console.log(prevHeader)
+									return data.replace(
+										prevHeader,
+										indexHeader
+									);
+								});
 							} else {
-								await this.app.vault.create(indexPath, content);
+								await this.app.vault.create(
+									indexPath,
+									indexHeader
+								);
 							}
 						} catch (err) {
 							console.error(err);
@@ -224,7 +240,7 @@ export default class MyTestingPlugin extends Plugin {
 		return `${path}/${name}_${this.settings.suffix}.md`;
 	}
 
-	makeIndexFileContent(name: string, paths: Array<IFileMapPath>) {
+	makeIndexFileHeader(name: string, paths: Array<IFileMapPath>) {
 		const lines: Array<string> = [];
 		const fmtName = name
 			? name.at(0)?.toUpperCase() + name.slice(1)
@@ -238,6 +254,7 @@ export default class MyTestingPlugin extends Plugin {
 				path.key.at(0)?.toUpperCase() + path.key.slice(1);
 			lines.push(`### [[${path.value}|${fmtLinkName}]] \n`);
 		}
+		lines.push("---");
 		return lines.join("");
 	}
 }
